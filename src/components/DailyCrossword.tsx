@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, ChevronLeft, ChevronRight, Info } from "lucide-react"
 import { supabase } from '@/lib/supabase'
 
 interface CrosswordCell {
@@ -32,6 +32,17 @@ interface CrosswordData {
   };
 }
 
+const getSpotifyTrackId = async (title: string, artist: string) => {
+  const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(title + ' ' + artist)}&type=track&limit=1`, {
+    headers: {
+      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SPOTIFY_ACCESS_TOKEN}`,
+      'Client-ID': process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID,
+    }
+  });
+  const data = await response.json();
+  return data.tracks.items[0]?.id;
+};
+
 export default function DailyCrossword() {
   const [crosswords, setCrosswords] = useState<CrosswordData[]>([])
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0)
@@ -41,6 +52,7 @@ export default function DailyCrossword() {
   const [isCorrect, setIsCorrect] = useState(false)
   const [hasPressedPast, setHasPressedPast] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCrosswords()
@@ -55,6 +67,7 @@ export default function DailyCrossword() {
 
     if (error) {
       console.error('Error fetching crosswords:', error)
+      setMessage('Failed to load crosswords. Please try again later.')
     } else {
       setCrosswords(data || [])
     }
@@ -63,18 +76,23 @@ export default function DailyCrossword() {
 
   useEffect(() => {
     if (crosswords.length > 0) {
-      const currentPuzzle = crosswords[currentPuzzleIndex]
-      const storedAttempts = localStorage.getItem(`crosswordAttempts_${currentPuzzle.id}`)
+      const currentPuzzle = crosswords[currentPuzzleIndex];
+      const storedAttempts = localStorage.getItem(`crosswordAttempts_${currentPuzzle.id}`);
       if (storedAttempts) {
-        setAttempts(parseInt(storedAttempts, 10))
+        setAttempts(parseInt(storedAttempts, 10));
       } else {
-        setAttempts(0)
+        setAttempts(0);
       }
-      setUserGrid(currentPuzzle.grid.map(row => row.map(() => '')))
-      setIsCorrect(false)
-      setMessage('')
+      setUserGrid(currentPuzzle.grid.map(row => row.map(() => '')));
+      setIsCorrect(false);
+      setMessage('');
+
+      // Fetch Spotify track ID
+      getSpotifyTrackId(currentPuzzle.song.title, currentPuzzle.song.artist)
+        .then(id => setSpotifyTrackId(id))
+        .catch(error => console.error('Error fetching Spotify track:', error));
     }
-  }, [currentPuzzleIndex, crosswords])
+  }, [currentPuzzleIndex, crosswords]);
 
   const handleInputChange = (rowIndex: number, colIndex: number, value: string) => {
     const newGrid = [...userGrid]
@@ -127,11 +145,11 @@ export default function DailyCrossword() {
   }
 
   if (isLoading) {
-    return <div>Loading...</div>
+    return <div className="flex justify-center items-center h-screen">Loading...</div>
   }
 
   if (crosswords.length === 0) {
-    return <div>No puzzles available</div>
+    return <div className="flex justify-center items-center h-screen">No puzzles available</div>
   }
 
   const currentPuzzle = crosswords[currentPuzzleIndex]
@@ -149,11 +167,24 @@ export default function DailyCrossword() {
               size="icon"
               onClick={handleReset}
               className="text-primary hover:text-primary-foreground p-0"
+              aria-label="Reset puzzle"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
+        {spotifyTrackId && (
+          <div className="mb-4">
+            <iframe
+              src={`https://open.spotify.com/embed/track/${spotifyTrackId}`}
+              width="100%"
+              height="80"
+              frameBorder="0"
+              allowTransparency={true}
+              allow="encrypted-media"
+            ></iframe>
+          </div>
+        )}
         <Card className={`mb-2 ${isCorrect ? 'animate-rainbow' : ''}`}>
           <CardContent className="p-0">
             <div className="grid grid-cols-5 gap-0 border border-primary aspect-square">
@@ -173,6 +204,7 @@ export default function DailyCrossword() {
                         value={userGrid[rowIndex]?.[colIndex] || ''}
                         onChange={(e) => handleInputChange(rowIndex, colIndex, e.target.value)}
                         disabled={isOutOfAttempts}
+                        aria-label={`Row ${rowIndex + 1}, Column ${colIndex + 1}`}
                       />
                     )}
                   </div>
@@ -218,7 +250,9 @@ export default function DailyCrossword() {
             size="sm"
             onClick={handlePast}
             className="p-0 h-auto text-[10px]"
+            aria-label="Previous puzzle"
           >
+            <ChevronLeft className="h-3 w-3 mr-1" />
             Past
           </Button>
           <span>{new Date(currentPuzzle.date).toISOString().split('T')[0]}</span>
@@ -227,7 +261,9 @@ export default function DailyCrossword() {
             size="sm"
             onClick={() => {/* Implement about functionality */}}
             className="p-0 h-auto text-[10px]"
+            aria-label="About"
           >
+            <Info className="h-3 w-3 mr-1" />
             About
           </Button>
           {hasPressedPast && (
@@ -236,8 +272,10 @@ export default function DailyCrossword() {
               size="sm"
               onClick={handleNext}
               className="p-0 h-auto text-[10px]"
+              aria-label="Next puzzle"
             >
               Next
+              <ChevronRight className="h-3 w-3 ml-1" />
             </Button>
           )}
         </div>
