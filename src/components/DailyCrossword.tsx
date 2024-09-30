@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, ChevronLeft, ChevronRight, Info, User, Trophy } from "lucide-react"
-import { createSupabaseClient } from '@/lib/supabaseClient'
-import Image from 'next/image'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import LoginSignup from './LoginSignup'
 import Leaderboard from './Leaderboard'
+import Profile from './Profile'
+import About from './About'
 
 interface CrosswordCell {
   value: string;
@@ -35,85 +36,59 @@ interface CrosswordData {
     artist: string;
     spotify_id?: string;
   };
-  theme_image_url?: string;
 }
 
-export default function DailyCrossword() {
-  const [crosswords, setCrosswords] = useState<CrosswordData[]>([])
+interface DailyCrosswordProps {
+  initialCrosswords: CrosswordData[];
+}
+
+export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProps) {
+  const [crosswords, setCrosswords] = useState<CrosswordData[]>(initialCrosswords)
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0)
   const [userGrid, setUserGrid] = useState<string[][]>([])
   const [attempts, setAttempts] = useState(0)
   const [message, setMessage] = useState('')
   const [isCorrect, setIsCorrect] = useState(false)
   const [hasPressedPast, setHasPressedPast] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [showLogin, setShowLogin] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [spotifyToken, setSpotifyToken] = useState<string | null>(null)
+
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
-    fetchCrosswords()
     checkUser()
+    if (crosswords.length > 0) {
+      initializeUserGrid(crosswords[0])
+    }
+    getSpotifyToken()
   }, [])
 
+  useEffect(() => {
+    if (user && crosswords.length > 0) {
+      loadPuzzleAttempts(crosswords[currentPuzzleIndex].id)
+    }
+  }, [user, currentPuzzleIndex])
+
   const checkUser = async () => {
-    const supabase = createSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
   }
 
-  const fetchCrosswords = async () => {
-    setIsLoading(true)
-    setError(null)
+  const getSpotifyToken = async () => {
     try {
-      console.log('Fetching crosswords...')
-      const supabase = createSupabaseClient()
-      const { data, error } = await supabase
-        .from('crosswords')
-        .select('*')
-        .order('date', { ascending: false })
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
+      const response = await fetch('/api/spotify-token')
+      if (!response.ok) {
+        throw new Error('Failed to fetch Spotify token')
       }
-
-      console.log('Fetched data:', data)
-
-      if (data && data.length > 0) {
-        const parsedCrosswords = data.map(crossword => {
-          try {
-            return {
-              ...crossword,
-              grid: typeof crossword.grid === 'string' ? JSON.parse(crossword.grid) : crossword.grid,
-              solution: typeof crossword.solution === 'string' ? JSON.parse(crossword.solution) : crossword.solution,
-              across_clues: typeof crossword.across_clues === 'string' ? JSON.parse(crossword.across_clues) : crossword.across_clues,
-              down_clues: typeof crossword.down_clues === 'string' ? JSON.parse(crossword.down_clues) : crossword.down_clues,
-              song: crossword.song && typeof crossword.song === 'string' ? JSON.parse(crossword.song) : crossword.song
-            }
-          } catch (parseError) {
-            console.error('Error parsing crossword data:', parseError, crossword)
-            return null
-          }
-        }).filter(Boolean) as CrosswordData[]
-
-        console.log('Parsed crosswords:', parsedCrosswords)
-        
-        if (parsedCrosswords.length > 0) {
-          setCrosswords(parsedCrosswords)
-          initializeUserGrid(parsedCrosswords[0])
-        } else {
-          setError('No valid puzzles available after parsing.')
-        }
-      } else {
-        setError('No puzzles available in the database.')
-      }
-    } catch (err) {
-      console.error('Error fetching crosswords:', err)
-      setError('Failed to load crosswords. Please try again later.')
-    } finally {
-      setIsLoading(false)
+      const data = await response.json()
+      setSpotifyToken(data.access_token)
+    } catch (error) {
+      console.error('Error fetching Spotify token:', error)
+      setSpotifyToken(null)
     }
   }
 
@@ -124,10 +99,74 @@ export default function DailyCrossword() {
     setMessage('')
   }
 
+  const loadPuzzleAttempts = async (puzzleId: number) => {
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('puzzle_attempts')
+      .select('attempts, solved')
+      .eq('user_id', user.id)
+      .eq('puzzle_id', puzzleId)
+      .single()
+
+    if (error) {
+      console.error('Error loading puzzle attempts:', error)
+      return
+    }
+
+    if (data) {
+      setAttempts(data.attempts)
+      setIsCorrect(data.solved)
+    } else {
+      setAttempts(0)
+      setIsCorrect(false)
+    }
+  }
+
+  const updatePuzzleAttempts = async (puzzleId: number, newAttempts: number, solved: boolean) => {
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('puzzle_attempts')
+      .upsert({
+        user_id: user.id,
+        puzzle_id: puzzleId,
+        attempts: newAttempts,
+        solved: solved
+      }, {
+        onConflict: 'user_id,puzzle_id'
+      })
+
+    if (error) {
+      console.error('Error updating puzzle attempts:', error)
+    }
+  }
+
   const handleInputChange = (rowIndex: number, colIndex: number, value: string) => {
     const newGrid = [...userGrid]
     newGrid[rowIndex][colIndex] = value.toUpperCase()
     setUserGrid(newGrid)
+  }
+
+  const updateLeaderboard = async (userId: string, displayName: string, solved: boolean) => {
+    const { data, error } = await supabase
+      .from('leaderboard')
+      .upsert(
+        { 
+          user_id: userId, 
+          display_name: displayName, 
+          puzzles_solved: solved ? 1 : 0,
+          puzzles_attempted: 1
+        },
+        { 
+          onConflict: 'user_id',
+          count: solved ? 'puzzles_solved,puzzles_attempted' : 'puzzles_attempted'
+        }
+      )
+
+    if (error) {
+      console.error('Error updating leaderboard:', error)
+    }
   }
 
   const handleSubmit = async () => {
@@ -146,22 +185,14 @@ export default function DailyCrossword() {
         setIsCorrect(true)
         setMessage("Congratulations! You've solved the crossword!")
         
-        // Update leaderboard
-        const supabase = createSupabaseClient()
-        const { data, error } = await supabase
-          .from('leaderboard')
-          .upsert({
-            user_id: user.id,
-            username: user.user_metadata.username,
-            puzzles_solved: 1
-          }, {
-            onConflict: 'user_id',
-            count: 'exact'
-          })
-
-        if (error) console.error('Error updating leaderboard:', error)
+        await updateLeaderboard(user.id, user.user_metadata.display_name || user.email, true)
+        await updatePuzzleAttempts(currentPuzzle.id, newAttempts, true)
       } else {
         setMessage(`Attempt ${newAttempts} submitted. You have ${10 - newAttempts} attempts left.`)
+        await updatePuzzleAttempts(currentPuzzle.id, newAttempts, false)
+        if (newAttempts === 1) {
+          await updateLeaderboard(user.id, user.user_metadata.display_name || user.email, false)
+        }
       }
     } else {
       setMessage("Sorry, you're out of attempts. Try another puzzle!")
@@ -186,17 +217,18 @@ export default function DailyCrossword() {
     initializeUserGrid(crosswords[newIndex])
   }
 
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setShowLogin(false)
+    setShowProfile(false)
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col justify-center items-center h-screen">
-        <p className="text-xl font-bold mb-4">{error}</p>
-        <Button onClick={fetchCrosswords}>Retry</Button>
-      </div>
-    )
+  const handleTitleClick = () => {
+    setShowLogin(false)
+    setShowLeaderboard(false)
+    setShowProfile(false)
+    setShowAbout(false)
   }
 
   if (crosswords.length === 0) {
@@ -209,10 +241,23 @@ export default function DailyCrossword() {
   return (
     <div className="max-w-md mx-auto px-2 py-4">
       <div className="w-full max-w-md mx-auto">
+        <div className="text-center mb-4">
+          <h1 
+            className="text-3xl font-bold cursor-pointer" 
+            onClick={handleTitleClick}
+          >
+            Stronger Together
+          </h1>
+          <h2 className="text-xl">Unity and Cooperation</h2>
+        </div>
         {showLogin ? (
-          <LoginSignup onClose={() => setShowLogin(false)} onLogin={checkUser} />
+          <LoginSignup onLogin={checkUser} />
         ) : showLeaderboard ? (
-          <Leaderboard onClose={() => setShowLeaderboard(false)} />
+          <Leaderboard />
+        ) : showProfile ? (
+          <Profile onClose={() => setShowProfile(false)} onLogout={handleLogout} />
+        ) : showAbout ? (
+          <About onClose={() => setShowAbout(false)} />
         ) : (
           <div className={`${isOutOfAttempts ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="relative mb-2">
@@ -230,28 +275,17 @@ export default function DailyCrossword() {
                 </Button>
               </div>
             </div>
-            {currentPuzzle.song && currentPuzzle.song.spotify_id && (
+            {currentPuzzle.song && currentPuzzle.song.spotify_id && spotifyToken && (
               <div className="mb-4">
                 <iframe
-                  src={`https://open.spotify.com/embed/track/${currentPuzzle.song.spotify_id}`}
+                  src={`https://open.spotify.com/embed/track/${currentPuzzle.song.spotify_id}?utm_source=generator&theme=0`}
                   width="100%"
                   height="80"
                   frameBorder="0"
-                  allowTransparency={true}
-                  allow="encrypted-media"
-                  title={`${currentPuzzle.song.title} by ${currentPuzzle.song.artist}`}
+                  allowFullScreen
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
                 ></iframe>
-              </div>
-            )}
-            {currentPuzzle.theme_image_url && (
-              <div className="mb-4">
-                <Image
-                  src={currentPuzzle.theme_image_url}
-                  alt={`Theme image for ${currentPuzzle.title}`}
-                  width={300}
-                  height={200}
-                  layout="responsive"
-                />
               </div>
             )}
             <Card className={`mb-2 ${isCorrect ? 'animate-rainbow' : ''}`}>
@@ -326,7 +360,9 @@ export default function DailyCrossword() {
             <ChevronLeft className="h-3 w-3 mr-1" />
             Past
           </Button>
-          <span>{new Date(currentPuzzle.date).toISOString().split('T')[0]}</span>
+          <span>{new Date(currentPuzzle.date).toI
+
+SOString().split('T')[0]}</span>
           <Button
             variant="link"
             size="sm"
@@ -335,27 +371,26 @@ export default function DailyCrossword() {
             aria-label="Leaderboard"
           >
             <Trophy className="h-3 w-3 mr-1" />
-            Leaderboard
+            Leader
           </Button>
           <Button
             variant="link"
             size="sm"
-            onClick={() => setShowLogin(true)}
+            onClick={user ? () => setShowProfile(true) : () => setShowLogin(true)}
             className="p-0 h-auto text-[10px]"
-            aria-label="Login"
+            aria-label={user ? "Profile" : "Sign in / Sign up"}
           >
             <User className="h-3 w-3 mr-1" />
-            {user ? 'Profile' : 'Login'}
+            {user ? user.user_metadata.display_name || 'Profile' : 'Sign in'}
           </Button>
           <Button
             variant="link"
             size="sm"
-            onClick={() => {/* Implement about functionality */}}
+            onClick={() => setShowAbout(true)}
             className="p-0 h-auto text-[10px]"
             aria-label="About"
           >
-            <Info className="h-3 w-3 mr-1" />
-            About
+            <Info className="h-3 w-3" />
           </Button>
           {hasPressedPast && (
             <Button

@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createSupabaseClient } from '@/lib/supabaseClient'
-import HCaptcha from '@hcaptcha/react-hcaptcha'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface LoginSignupProps {
   onClose: () => void
@@ -18,36 +17,37 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [captchaToken, setCaptchaToken] = useState('')
-  const captchaRef = useRef<HCaptcha>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!captchaToken) {
-      setError('Please complete the captcha')
-      return
-    }
-
-    const supabase = createSupabaseClient()
+    setIsLoading(true)
+    setError('')
+    const supabase = createClientComponentClient()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { username },
+        data: { username }
       }
     })
 
     if (error) {
       setError(error.message)
-    } else {
+    } else if (data.user) {
       onLogin()
       onClose()
+    } else {
+      setError('An unexpected error occurred. Please try again.')
     }
+    setIsLoading(false)
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createSupabaseClient()
+    setIsLoading(true)
+    setError('')
+    const supabase = createClientComponentClient()
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -55,10 +55,13 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
 
     if (error) {
       setError(error.message)
-    } else {
+    } else if (data.user) {
       onLogin()
       onClose()
+    } else {
+      setError('An unexpected error occurred. Please try again.')
     }
+    setIsLoading(false)
   }
 
   return (
@@ -85,7 +88,9 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <Button type="submit" className="w-full">Login</Button>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Loading...' : 'Login'}
+              </Button>
             </form>
           </TabsContent>
           <TabsContent value="signup">
@@ -111,12 +116,9 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <HCaptcha
-                sitekey="4b8ed62e-a786-4ff8-8b3e-12523b6a3758"
-                onVerify={(token) => setCaptchaToken(token)}
-                ref={captchaRef}
-              />
-              <Button type="submit" className="w-full">Sign Up</Button>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Loading...' : 'Sign Up'}
+              </Button>
             </form>
           </TabsContent>
         </Tabs>

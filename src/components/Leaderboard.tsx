@@ -1,57 +1,72 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-interface LeaderboardProps {
-  onClose: () => void
-}
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface LeaderboardEntry {
-  username: string
+  display_name: string
   puzzles_solved: number
+  puzzles_attempted: number
 }
 
-export default function Leaderboard({ onClose }: LeaderboardProps) {
+export default function Leaderboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setIsLoading(true)
+      const { data, error } = await supabase
+        .from('leaderboard')
+        .select('display_name, puzzles_solved, puzzles_attempted')
+        .order('puzzles_solved', { ascending: false })
+        .order('puzzles_attempted', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('Error fetching leaderboard:', error)
+      } else {
+        setLeaderboard(data || [])
+      }
+      setIsLoading(false)
+    }
+
     fetchLeaderboard()
   }, [])
 
-  const fetchLeaderboard = async () => {
-    const { data, error } = await supabase
-      .from('leaderboard')
-      .select('username, puzzles_solved')
-      .order('puzzles_solved', { ascending: false })
-      .limit(10)
-
-    if (error) console.error('Error fetching leaderboard:', error)
-    else setLeaderboard(data)
-  }
-
   return (
-    <Card className="w-full">
-      <CardContent className="p-4">
-        <h2 className="text-xl font-bold mb-4">Leaderboard</h2>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="font-semibold">Username</div>
-          <div className="font-semibold text-right">Puzzles Solved</div>
-          {leaderboard.map((entry, index) => (
-            <>
-              <div key={`name-${index}`}>{entry.username}</div>
-              <div key={`score-${index}`} className="text-right">{entry.puzzles_solved}</div>
-            </>
-          ))}
-        </div>
-        <Button onClick={onClose} className="w-full">Close</Button>
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-center">Leaderboard</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-center">Loading leaderboard...</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[50px]">Rank</TableHead>
+                <TableHead>Player</TableHead>
+                <TableHead className="text-right">Solved</TableHead>
+                <TableHead className="text-right">Attempted</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {leaderboard.map((entry, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium">{index + 1}</TableCell>
+                  <TableCell>{entry.display_name}</TableCell>
+                  <TableCell className="text-right">{entry.puzzles_solved}</TableCell>
+                  <TableCell className="text-right">{entry.puzzles_attempted}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   )
