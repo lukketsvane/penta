@@ -1,17 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseClient } from '@/lib/supabaseClient'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 interface LoginSignupProps {
   onClose: () => void
@@ -24,42 +19,43 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [captchaToken, setCaptchaToken] = useState('')
+  const captchaRef = useRef<HCaptcha>(null)
 
-  const handleSignUp = async () => {
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault()
     if (!captchaToken) {
       setError('Please complete the captcha')
       return
     }
 
+    const supabase = createSupabaseClient()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { username },
-        captchaToken
       }
     })
-    if (error) setError(error.message)
-    else {
-      setError('Signup successful! Please check your email to confirm your account.')
+
+    if (error) {
+      setError(error.message)
+    } else {
+      onLogin()
+      onClose()
     }
   }
 
-  const handleLogin = async () => {
-    if (!captchaToken) {
-      setError('Please complete the captcha')
-      return
-    }
-
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const supabase = createSupabaseClient()
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      password,
-      options: {
-        captchaToken
-      }
+      password
     })
-    if (error) setError(error.message)
-    else {
+
+    if (error) {
+      setError(error.message)
+    } else {
       onLogin()
       onClose()
     }
@@ -74,49 +70,51 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
           <TabsContent value="login">
-            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4">
               <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-              />
-              <HCaptcha
-                sitekey="4b8ed62e-a786-4ff8-8b3e-12523b6a3758"
-                onVerify={(token) => setCaptchaToken(token)}
+                required
               />
               <Button type="submit" className="w-full">Login</Button>
             </form>
           </TabsContent>
           <TabsContent value="signup">
-            <form onSubmit={(e) => { e.preventDefault(); handleSignUp(); }} className="space-y-4">
+            <form onSubmit={handleSignUp} className="space-y-4">
               <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
               <Input
                 type="text"
                 placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                required
               />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
               />
               <HCaptcha
                 sitekey="4b8ed62e-a786-4ff8-8b3e-12523b6a3758"
                 onVerify={(token) => setCaptchaToken(token)}
+                ref={captchaRef}
               />
               <Button type="submit" className="w-full">Sign Up</Button>
             </form>

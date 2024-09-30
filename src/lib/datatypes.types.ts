@@ -1,15 +1,84 @@
-export type Database = {
-    // Define your database schema here
-    // This is just a placeholder and should be replaced with your actual schema
-    public: {
-      Tables: {
-        // Define your tables here
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
+  public: {
+    Tables: {
+      crosswords: {
+        Row: {
+          id: number
+          date: string
+          title: string
+          theme: string
+          grid: Json
+          solution: Json
+          across_clues: Json
+          down_clues: Json
+          song: Json | null
+          theme_image_url: string | null
+        }
+        Insert: {
+          id?: number
+          date: string
+          title: string
+          theme: string
+          grid: Json
+          solution: Json
+          across_clues: Json
+          down_clues: Json
+          song?: Json | null
+          theme_image_url?: string | null
+        }
+        Update: {
+          id?: number
+          date?: string
+          title?: string
+          theme?: string
+          grid?: Json
+          solution?: Json
+          across_clues?: Json
+          down_clues?: Json
+          song?: Json | null
+          theme_image_url?: string | null
+        }
       }
-      Views: {
-        // Define your views here
-      }
-      Functions: {
-        // Define your functions here
+      leaderboard: {
+        Row: {
+          id: number
+          user_id: string
+          username: string
+          puzzles_solved: number
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          username: string
+          puzzles_solved: number
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          username?: string
+          puzzles_solved?: number
+        }
       }
     }
-  }s
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
