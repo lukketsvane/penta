@@ -1,16 +1,46 @@
-c:/Users/Shadow/Documents/GitHub/penta/
-  ├─].next/ (ignored)
-  ├─].vercel/ (ignored)
-  ├─ .vscode/
-  │  ├─ extensions.json
-  │  └─ settings.json
-  ├─]node_modules/ (ignored)
+# Penta Crossword
+
+A daily 5x5 crossword puzzle game with limited attempts.
+
+## Setup
+
+1. Clone the repository
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Set up your environment variables (copy `.env.example` to `.env.local` and fill in the values)
+
+## Running the project
+
+Development mode:
+```
+npm run dev
+```
+
+Build for production:
+```
+npm run build
+```
+
+Start production server:
+```
+npm start
+```
+
+## Additional Information
+
+- This project uses Next.js, Tailwind CSS, and Supabase.
+- Make sure to set up your Supabase project and update the environment variables accordingly.
+
+
+### FILETREE
+```
   ├─ src/
   │  ├─ app/
   │  │  ├─ fonts/
   │  │  │  ├─ GeistMonoVF.woff
   │  │  │  └─ GeistVF.woff
-  │  │  ├─ ap
   │  │  ├─ favicon.ico
   │  │  ├─ globals.css
   │  │  ├─ layout.tsx
@@ -54,3 +84,4 @@ c:/Users/Shadow/Documents/GitHub/penta/
   ├─ README.md
   ├─ tailwind.config.ts
   └─ tsconfig.json
+```
