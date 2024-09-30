@@ -1,18 +1,26 @@
-import { Metadata } from 'next'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import DailyCrossword from '@/components/DailyCrossword'
 
-export const metadata: Metadata = {
-  title: 'Daily Crossword Puzzle',
-  description: 'Challenge yourself with our daily crossword puzzle. New themes and clues every day!',
+export const dynamic = 'force-dynamic'
+
+async function getCrosswords() {
+  const supabase = createServerComponentClient({ cookies })
+  const { data, error } = await supabase
+    .from('crosswords')
+    .select('*')
+    .order('date', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching crosswords:', error)
+    throw new Error('Failed to fetch crosswords')
+  }
+
+  return data
 }
 
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <h1 className="text-4xl font-bold text-center mb-8">Daily Crossword</h1>
-        <DailyCrossword />
-      </div>
-    </main>
-  )
+export default async function Home() {
+  const crosswordsData = await getCrosswords()
+
+  return <DailyCrossword initialCrosswords={crosswordsData} />
 }

@@ -219,9 +219,6 @@ export default function DailyCrossword() {
               <h1 className="text-lg font-bold">{currentPuzzle.title}</h1>
               <p className="text-sm text-gray-600">{currentPuzzle.theme}</p>
               <div className="absolute top-0 right-0 z-10 flex items-center">
-                {currentPuzzle.song && (
-                  <p className="text-xs mr-2">{currentPuzzle.song.title} - {currentPuzzle.song.artist}</p>
-                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -242,6 +239,7 @@ export default function DailyCrossword() {
                   frameBorder="0"
                   allowTransparency={true}
                   allow="encrypted-media"
+                  title={`${currentPuzzle.song.title} by ${currentPuzzle.song.artist}`}
                 ></iframe>
               </div>
             )}
