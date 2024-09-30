@@ -24,10 +24,6 @@ export default function About({ onClose }: AboutProps) {
       </CardHeader>
       <CardContent>
         <p className="mb-4">
-          Penta Crossword is a daily puzzle game that challenges your word skills and knowledge. 
-          Each day, a new 5x5 crossword puzzle is available for you to solve.
-        </p>
-        <p className="mb-4">
           Features:
         </p>
         <ul className="list-disc list-inside mb-4">
@@ -37,8 +33,7 @@ export default function About({ onClose }: AboutProps) {
           <li>Themed puzzles with Spotify integration</li>
         </ul>
         <p className="mb-4">
-          Created by @kondensjasjonskjerner with love by @lukketsvane. 
-          We hope you enjoy playing Penta Crossword!
+          Created by @kondensjasjonskjerner
         </p>
         <p className="text-sm text-gray-500">
           Version 1.0.0
