@@ -1,5 +1,5 @@
 import { testSupabaseConnection } from '@/lib/supabase'
-import DailyCrossword from '@/components/crossword/DailyCrossword'
+import DailyCrossword from '../components/DailyCrossword'
 
 export default async function Home() {
   const testResult = await testSupabaseConnection()

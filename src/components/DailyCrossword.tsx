@@ -65,6 +65,7 @@ export default function DailyCrossword() {
         .from('crosswords')
         .select('*')
         .order('date', { ascending: false })
+        .limit(5)
 
       if (error) {
         console.error('Supabase error:', error)
@@ -76,14 +77,16 @@ export default function DailyCrossword() {
       if (data && data.length > 0) {
         const parsedCrosswords = data.map(crossword => {
           try {
-            return {
+            const parsed = {
               ...crossword,
-              grid: JSON.parse(crossword.grid as unknown as string),
-              solution: JSON.parse(crossword.solution as unknown as string),
-              across_clues: JSON.parse(crossword.across_clues as unknown as string),
-              down_clues: JSON.parse(crossword.down_clues as unknown as string),
-              song: crossword.song ? JSON.parse(crossword.song as unknown as string) : undefined
+              grid: typeof crossword.grid === 'string' ? JSON.parse(crossword.grid) : crossword.grid,
+              solution: typeof crossword.solution === 'string' ? JSON.parse(crossword.solution) : crossword.solution,
+              across_clues: typeof crossword.across_clues === 'string' ? JSON.parse(crossword.across_clues) : crossword.across_clues,
+              down_clues: typeof crossword.down_clues === 'string' ? JSON.parse(crossword.down_clues) : crossword.down_clues,
+              song: crossword.song && typeof crossword.song === 'string' ? JSON.parse(crossword.song) : crossword.song
             }
+            console.log('Successfully parsed crossword:', crossword.id)
+            return parsed
           } catch (parseError) {
             console.error('Error parsing crossword data:', parseError, crossword)
             return null
@@ -96,10 +99,10 @@ export default function DailyCrossword() {
           setCrosswords(parsedCrosswords)
           initializeUserGrid(parsedCrosswords[0])
         } else {
-          setError('No valid puzzles available.')
+          setError('No valid puzzles available after parsing.')
         }
       } else {
-        setError('No puzzles available.')
+        setError('No puzzles available in the database.')
       }
     } catch (err) {
       console.error('Error fetching crosswords:', err)
