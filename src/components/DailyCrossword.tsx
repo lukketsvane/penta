@@ -267,14 +267,25 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
   return (
     <div className="max-w-md mx-auto px-2 py-4">
       <div className="w-full max-w-md mx-auto">
-        <div className="mb-4">
-          <h1 
-            className="text-2xl font-bold cursor-pointer" 
-            onClick={handleTitleClick}
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h1 
+              className="text-2xl font-bold cursor-pointer" 
+              onClick={handleTitleClick}
+            >
+              Stronger Together
+            </h1>
+            <h2 className="text-xl">Unity and Cooperation</h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleReset}
+            className="text-primary hover:text-primary-foreground"
+            aria-label="Reset all fields"
           >
-            Stronger Together
-          </h1>
-          <h2 className="text-xl">Unity and Cooperation</h2>
+            <RefreshCw className="h-6 w-6" />
+          </Button>
         </div>
         {showLogin ? (
           <LoginSignup onLogin={checkUser} />
