@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, ChevronLeft, ChevronRight, Info, User, Trophy } from "lucide-react"
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseClient } from '@/lib/supabaseClient'
 import Image from 'next/image'
 import LoginSignup from './LoginSignup'
 import Leaderboard from './Leaderboard'
@@ -38,11 +38,6 @@ interface CrosswordData {
   theme_image_url?: string;
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 export default function DailyCrossword() {
   const [crosswords, setCrosswords] = useState<CrosswordData[]>([])
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0)
@@ -63,6 +58,7 @@ export default function DailyCrossword() {
   }, [])
 
   const checkUser = async () => {
+    const supabase = createSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
   }
@@ -72,6 +68,7 @@ export default function DailyCrossword() {
     setError(null)
     try {
       console.log('Fetching crosswords...')
+      const supabase = createSupabaseClient()
       const { data, error } = await supabase
         .from('crosswords')
         .select('*')
@@ -150,15 +147,16 @@ export default function DailyCrossword() {
         setMessage("Congratulations! You've solved the crossword!")
         
         // Update leaderboard
+        const supabase = createSupabaseClient()
         const { data, error } = await supabase
           .from('leaderboard')
-          .upsert({ 
-            user_id: user.id, 
+          .upsert({
+            user_id: user.id,
             username: user.user_metadata.username,
-            puzzles_solved: 1 
-          }, { 
+            puzzles_solved: 1
+          }, {
             onConflict: 'user_id',
-            count: 'puzzles_solved'
+            count: 'exact'
           })
 
         if (error) console.error('Error updating leaderboard:', error)
