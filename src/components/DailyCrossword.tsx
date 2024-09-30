@@ -33,6 +33,7 @@ interface CrosswordData {
   song?: {
     title: string;
     artist: string;
+    spotify_id?: string;
   };
   theme_image_url?: string;
 }
@@ -51,7 +52,6 @@ export default function DailyCrossword() {
   const [isCorrect, setIsCorrect] = useState(false)
   const [hasPressedPast, setHasPressedPast] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showLogin, setShowLogin] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
@@ -125,33 +125,6 @@ export default function DailyCrossword() {
     setAttempts(0)
     setIsCorrect(false)
     setMessage('')
-    if (puzzle.song) {
-      fetchSpotifyTrackId(puzzle.song.title, puzzle.song.artist)
-    } else {
-      setSpotifyTrackId(null)
-    }
-  }
-
-  const fetchSpotifyTrackId = async (title: string, artist: string) => {
-    try {
-      const response = await fetch('/api/spotify-search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title, artist }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch Spotify track')
-      }
-
-      const data = await response.json()
-      setSpotifyTrackId(data.trackId)
-    } catch (error) {
-      console.error('Error fetching Spotify track:', error)
-      setSpotifyTrackId(null)
-    }
   }
 
   const handleInputChange = (rowIndex: number, colIndex: number, value: string) => {
@@ -262,10 +235,10 @@ export default function DailyCrossword() {
                 </Button>
               </div>
             </div>
-            {spotifyTrackId && (
+            {currentPuzzle.song && currentPuzzle.song.spotify_id && (
               <div className="mb-4">
                 <iframe
-                  src={`https://open.spotify.com/embed/track/${spotifyTrackId}`}
+                  src={`https://open.spotify.com/embed/track/${currentPuzzle.song.spotify_id}`}
                   width="100%"
                   height="80"
                   frameBorder="0"
@@ -301,7 +274,7 @@ export default function DailyCrossword() {
                             type="text"
                             maxLength={1}
                             className="w-full h-full text-center text-xs font-bold border-0 rounded-none focus:ring-0 p-0"
-                            value={userGrid[rowIndex]?.[colIndex] || ''}
+                            value={userGrid[rowIndex]?.[colIndex]?.toUpperCase() || ''}
                             onChange={(e) => handleInputChange(rowIndex, colIndex, e.target.value)}
                             disabled={isOutOfAttempts}
                             aria-label={`Row ${rowIndex + 1}, Column ${colIndex + 1}`}
