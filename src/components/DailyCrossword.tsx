@@ -265,8 +265,8 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
   const isCurrentDate = new Date(currentPuzzle.date).toDateString() === new Date().toDateString()
 
   return (
-    <div className="max-w-md mx-auto px-2 py-4">
-      <div className="w-full max-w-md mx-auto">
+    <div className="min-h-screen flex flex-col justify-center items-center py-8">
+      <div className="w-full max-w-md mx-auto px-4">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 
@@ -359,8 +359,8 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
           </div>
         )}
       </div>
-      <footer className="mt-4">
-        <p className="text-[10px] mb-1">made by @kondensjasjonskjerner with &lt;3 by @lukketsvane</p>
+      <footer className="w-full max-w-md mx-auto mt-4 px-4">
+        <p className="text-[10px] mb-1">made by @konden sjasjonskjerner with &lt;3 by @lukketsvane</p>
         <div className="flex justify-between items-center text-[10px] border-t border-gray-200 pt-1">
           <div className="flex items-center space-x-2">
             <Button
