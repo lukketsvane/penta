@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw, ChevronLeft, ChevronRight, Info } from "lucide-react"
+import { RefreshCw, ChevronLeft, ChevronRight, Info, User, Trophy } from "lucide-react"
 import { createClient } from '@supabase/supabase-js'
 import Image from 'next/image'
+import LoginSignup from './LoginSignup'
+import Leaderboard from './Leaderboard'
 
 interface CrosswordCell {
   value: string;
@@ -51,10 +53,19 @@ export default function DailyCrossword() {
   const [isLoading, setIsLoading] = useState(true)
   const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showLogin, setShowLogin] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     fetchCrosswords()
+    checkUser()
   }, [])
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setUser(user)
+  }
 
   const fetchCrosswords = async () => {
     setIsLoading(true)
@@ -65,7 +76,6 @@ export default function DailyCrossword() {
         .from('crosswords')
         .select('*')
         .order('date', { ascending: false })
-        .limit(5)
 
       if (error) {
         console.error('Supabase error:', error)
@@ -77,7 +87,7 @@ export default function DailyCrossword() {
       if (data && data.length > 0) {
         const parsedCrosswords = data.map(crossword => {
           try {
-            const parsed = {
+            return {
               ...crossword,
               grid: typeof crossword.grid === 'string' ? JSON.parse(crossword.grid) : crossword.grid,
               solution: typeof crossword.solution === 'string' ? JSON.parse(crossword.solution) : crossword.solution,
@@ -85,8 +95,6 @@ export default function DailyCrossword() {
               down_clues: typeof crossword.down_clues === 'string' ? JSON.parse(crossword.down_clues) : crossword.down_clues,
               song: crossword.song && typeof crossword.song === 'string' ? JSON.parse(crossword.song) : crossword.song
             }
-            console.log('Successfully parsed crossword:', crossword.id)
-            return parsed
           } catch (parseError) {
             console.error('Error parsing crossword data:', parseError, crossword)
             return null
@@ -152,8 +160,8 @@ export default function DailyCrossword() {
     setUserGrid(newGrid)
   }
 
-  const handleSubmit = () => {
-    if (crosswords.length === 0) return
+  const handleSubmit = async () => {
+    if (crosswords.length === 0 || !user) return
 
     const currentPuzzle = crosswords[currentPuzzleIndex]
     if (attempts < 10) {
@@ -167,6 +175,20 @@ export default function DailyCrossword() {
       if (isSubmissionCorrect) {
         setIsCorrect(true)
         setMessage("Congratulations! You've solved the crossword!")
+        
+        // Update leaderboard
+        const { data, error } = await supabase
+          .from('leaderboard')
+          .upsert({ 
+            user_id: user.id, 
+            username: user.user_metadata.username,
+            puzzles_solved: 1 
+          }, { 
+            onConflict: 'user_id',
+            count: 'puzzles_solved'
+          })
+
+        if (error) console.error('Error updating leaderboard:', error)
       } else {
         setMessage(`Attempt ${newAttempts} submitted. You have ${10 - newAttempts} attempts left.`)
       }
@@ -215,105 +237,111 @@ export default function DailyCrossword() {
 
   return (
     <div className="max-w-md mx-auto px-2 py-4">
-      <div className={`${isOutOfAttempts ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="relative mb-2">
-          <h1 className="text-lg font-bold">{currentPuzzle.title}</h1>
-          <p className="text-sm text-gray-600">{currentPuzzle.theme}</p>
-          <div className="absolute top-0 right-0 z-10 flex items-center">
-            {currentPuzzle.song && (
-              <p className="text-xs mr-2">{currentPuzzle.song.title} - {currentPuzzle.song.artist}</p>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleReset}
-              className="text-primary hover:text-primary-foreground p-0"
-              aria-label="Reset puzzle"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        {spotifyTrackId && (
-          <div className="mb-4">
-            <iframe
-              src={`https://open.spotify.com/embed/track/${spotifyTrackId}`}
-              width="100%"
-              height="80"
-              frameBorder="0"
-              allowTransparency={true}
-              allow="encrypted-media"
-            ></iframe>
-          </div>
-        )}
-        {currentPuzzle.theme_image_url && (
-          <div className="mb-4">
-            <Image
-              src={currentPuzzle.theme_image_url}
-              alt={`Theme image for ${currentPuzzle.title}`}
-              width={300}
-              height={200}
-              layout="responsive"
-            />
-          </div>
-        )}
-        <Card className={`mb-2 ${isCorrect ? 'animate-rainbow' : ''}`}>
-          <CardContent className="p-0">
-            <div className="grid grid-cols-5 gap-0 border border-primary aspect-square">
-              {currentPuzzle.grid.map((row, rowIndex) => (
-                row.map((cell, colIndex) => (
-                  <div key={`${rowIndex}-${colIndex}`} className="relative border border-primary aspect-square">
-                    {cell.number && (
-                      <span className="absolute top-0 left-0 text-[6px] p-0.5">{cell.number}</span>
-                    )}
-                    {cell.isBlocked ? (
-                      <div className={`w-full h-full bg-primary ${isCorrect ? 'animate-rainbow' : ''}`}></div>
-                    ) : (
-                      <Input
-                        type="text"
-                        maxLength={1}
-                        className="w-full h-full text-center text-xs font-bold border-0 rounded-none focus:ring-0 p-0"
-                        value={userGrid[rowIndex]?.[colIndex] || ''}
-                        onChange={(e) => handleInputChange(rowIndex, colIndex, e.target.value)}
-                        disabled={isOutOfAttempts}
-                        aria-label={`Row ${rowIndex + 1}, Column ${colIndex + 1}`}
-                      />
-                    )}
-                  </div>
-                ))
-              ))}
+      {showLogin ? (
+        <LoginSignup onClose={() => setShowLogin(false)} onLogin={checkUser} />
+      ) : showLeaderboard ? (
+        <Leaderboard onClose={() => setShowLeaderboard(false)} />
+      ) : (
+        <div className={`${isOutOfAttempts ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="relative mb-2">
+            <h1 className="text-lg font-bold">{currentPuzzle.title}</h1>
+            <p className="text-sm text-gray-600">{currentPuzzle.theme}</p>
+            <div className="absolute top-0 right-0 z-10 flex items-center">
+              {currentPuzzle.song && (
+                <p className="text-xs mr-2">{currentPuzzle.song.title} - {currentPuzzle.song.artist}</p>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleReset}
+                className="text-primary hover:text-primary-foreground p-0"
+                aria-label="Reset puzzle"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <div>
-            <h2 className="text-xs font-semibold mb-1">Across</h2>
-            <ul className="space-y-0">
-              {currentPuzzle.across_clues.map((clue) => (
-                <li key={`across-${clue.number}`} className="text-[8px] leading-tight">{clue.number}. {clue.clue}</li>
-              ))}
-            </ul>
           </div>
-          <div>
-            <h2 className="text-xs font-semibold mb-1">Down</h2>
-            <ul className="space-y-0">
-              {currentPuzzle.down_clues.map((clue) => (
-                <li key={`down-${clue.number}`} className="text-[8px] leading-tight">{clue.number}. {clue.clue}</li>
-              ))}
-            </ul>
+          {spotifyTrackId && (
+            <div className="mb-4">
+              <iframe
+                src={`https://open.spotify.com/embed/track/${spotifyTrackId}`}
+                width="100%"
+                height="80"
+                frameBorder="0"
+                allowTransparency={true}
+                allow="encrypted-media"
+              ></iframe>
+            </div>
+          )}
+          {currentPuzzle.theme_image_url && (
+            <div className="mb-4">
+              <Image
+                src={currentPuzzle.theme_image_url}
+                alt={`Theme image for ${currentPuzzle.title}`}
+                width={300}
+                height={200}
+                layout="responsive"
+              />
+            </div>
+          )}
+          <Card className={`mb-2 ${isCorrect ? 'animate-rainbow' : ''}`}>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-5 gap-0 border border-primary aspect-square">
+                {currentPuzzle.grid.map((row, rowIndex) => (
+                  row.map((cell, colIndex) => (
+                    <div key={`${rowIndex}-${colIndex}`} className="relative border border-primary aspect-square">
+                      {cell.number && (
+                        <span className="absolute top-0 left-0 text-[6px] p-0.5">{cell.number}</span>
+                      )}
+                      {cell.isBlocked ? (
+                        <div className={`w-full h-full bg-primary ${isCorrect ? 'animate-rainbow' : ''}`}></div>
+                      ) : (
+                        <Input
+                          type="text"
+                          maxLength={1}
+                          className="w-full h-full text-center text-xs font-bold border-0 rounded-none focus:ring-0 p-0"
+                          value={userGrid[rowIndex]?.[colIndex] || ''}
+                          onChange={(e) => handleInputChange(rowIndex, colIndex, e.target.value)}
+                          disabled={isOutOfAttempts}
+                          aria-label={`Row ${rowIndex + 1}, Column ${colIndex + 1}`}
+                        />
+                      )}
+                    </div>
+                  ))
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <div>
+              <h2 className="text-xs font-semibold mb-1">Across</h2>
+              <ul className="space-y-0">
+                {currentPuzzle.across_clues.map((clue) => (
+                  <li key={`across-${clue.number}`} className="text-[8px] leading-tight">{clue.number}. {clue.clue}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h2 className="text-xs font-semibold mb-1">Down</h2>
+              <ul className="space-y-0">
+                {currentPuzzle.down_clues.map((clue) => (
+                  <li key={`down-${clue.number}`} className="text-[8px] leading-tight">{clue.number}. {clue.clue}</li>
+                ))}
+              </ul>
+            </div>
           </div>
+          <Card className={`mt-2 ${isOutOfAttempts ? 'opacity-100' : ''}`}>
+            <CardContent className="p-2">
+              <Button onClick={handleSubmit} disabled={isOutOfAttempts} className="w-full mb-1 text-xs py-1">
+                Submit
+              </Button>
+              {message && (
+                <p className="text-center text-xs">{message}</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
-        <Card className={`mt-2 ${isOutOfAttempts ? 'opacity-100' : ''}`}>
-          <CardContent className="p-2">
-            <Button onClick={handleSubmit} disabled={isOutOfAttempts} className="w-full mb-1 text-xs py-1">
-              Submit
-            </Button>
-            {message && (
-              <p className="text-center text-xs">{message}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      )}
       <footer className="mt-4 text-center">
         <p className="text-[10px] mb-1">made by @kondensjasjonskjerner with &lt;3 by @lukketsvane</p>
         <div className="flex justify-between items-center text-[10px] border-t border-gray-200 pt-1">
@@ -328,6 +356,26 @@ export default function DailyCrossword() {
             Past
           </Button>
           <span>{new Date(currentPuzzle.date).toISOString().split('T')[0]}</span>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => setShowLeaderboard(true)}
+            className="p-0 h-auto text-[10px]"
+            aria-label="Leaderboard"
+          >
+            <Trophy className="h-3 w-3 mr-1" />
+            Leaderboard
+          </Button>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => setShowLogin(true)}
+            className="p-0 h-auto text-[10px]"
+            aria-label="Login"
+          >
+            <User className="h-3 w-3 mr-1" />
+            {user ? 'Profile' : 'Login'}
+          </Button>
           <Button
             variant="link"
             size="sm"
