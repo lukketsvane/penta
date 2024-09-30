@@ -169,7 +169,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
 
   const handleInputChange = (rowIndex: number, colIndex: number, value: string) => {
     const newGrid = [...userGrid]
-    newGrid[rowIndex][colIndex] = value.toUpperCase()
+    newGrid[rowIndex][colIndex] = value.replace(/[^A-Za-z]/g, '').toUpperCase()
     setUserGrid(newGrid)
   }
 
@@ -267,9 +267,9 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
   return (
     <div className="max-w-md mx-auto px-2 py-4">
       <div className="w-full max-w-md mx-auto">
-        <div className="text-center mb-4">
+        <div className="mb-4">
           <h1 
-            className="text-3xl font-bold cursor-pointer" 
+            className="text-2xl font-bold cursor-pointer" 
             onClick={handleTitleClick}
           >
             Stronger Together
@@ -286,21 +286,6 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
           <About onClose={() => setShowAbout(false)} />
         ) : (
           <div className={`${isOutOfAttempts ? 'opacity-50 pointer-events-none' : ''}`}>
-            <div className="relative mb-2">
-              <h1 className="text-lg font-bold">{currentPuzzle.title}</h1>
-              <p className="text-sm text-gray-600">{currentPuzzle.theme}</p>
-              <div className="absolute top-0 right-0 z-10 flex items-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleReset}
-                  className="text-primary hover:text-primary-foreground p-0"
-                  aria-label="Reset puzzle"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
             {currentPuzzle.song && currentPuzzle.song.spotify_id && (
               <div ref={spotifyEmbedRef} className="mb-4"></div>
             )}
@@ -319,7 +304,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
                           <Input
                             type="text"
                             maxLength={1}
-                            className="w-full h-full text-center text-xs font-bold border-0 rounded-none focus:ring-0 p-0"
+                            className="w-full h-full text-center text-2xl font-bold border-0 rounded-none focus:ring-0 p-0"
                             value={userGrid[rowIndex]?.[colIndex]?.toUpperCase() || ''}
                             onChange={(e) => handleInputChange(rowIndex, colIndex, e.target.value)}
                             disabled={isOutOfAttempts}
@@ -363,19 +348,34 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
           </div>
         )}
       </div>
-      <footer className="mt-4 text-center">
+      <footer className="mt-4">
         <p className="text-[10px] mb-1">made by @kondensjasjonskjerner with &lt;3 by @lukketsvane</p>
         <div className="flex justify-between items-center text-[10px] border-t border-gray-200 pt-1">
-          <Button
-            variant="link"
-            size="sm"
-            onClick={handlePast}
-            className="p-0 h-auto text-[10px]"
-            aria-label="Previous puzzle"
-          >
-            <ChevronLeft className="h-3 w-3 mr-1" />
-            Past
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="link"
+              size="sm"
+              onClick={handlePast}
+              className="p-0 h-auto text-[10px]"
+              aria-label="Previous puzzle"
+            >
+              <ChevronLeft className="h-3 w-3 mr-1" />
+              Past
+            </Button>
+            {hasPressedPast && !isCurrentDate && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={handleNext}
+                className="p-0 h-auto text-[10px]"
+                aria-label="Next puzzle"
+              >
+                Next
+                <ChevronRight className="h-3 w-3 ml-1" />
+              </Button>
+            )}
+            {!hasPressedPast && <div className="w-[30px]"></div>}
+          </div>
           <span>{new Date(currentPuzzle.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
           <Button
             variant="link"
@@ -385,7 +385,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
             aria-label="Leaderboard"
           >
             <Trophy className="h-3 w-3 mr-1" />
-            Leaderboard
+            Leader
           </Button>
           <Button
             variant="link"
@@ -406,18 +406,6 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
           >
             <Info className="h-3 w-3" />
           </Button>
-          {hasPressedPast && !isCurrentDate && (
-            <Button
-              variant="link"
-              size="sm"
-              onClick={handleNext}
-              className="p-0 h-auto text-[10px]"
-              aria-label="Next puzzle"
-            >
-              Next
-              <ChevronRight className="h-3 w-3 ml-1" />
-            </Button>
-          )}
         </div>
       </footer>
     </div>
