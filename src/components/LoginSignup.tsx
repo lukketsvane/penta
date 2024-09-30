@@ -33,8 +33,8 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
     })
     if (error) setError(error.message)
     else {
-      onLogin()
-      onClose()
+      // Instead of calling onLogin here, we'll show a success message
+      setError('Signup successful! Please check your email to confirm your account.')
     }
   }
 
