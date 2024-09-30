@@ -385,7 +385,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
             aria-label="Leaderboard"
           >
             <Trophy className="h-3 w-3 mr-1" />
-            Leader
+            Leaderboard
           </Button>
           <Button
             variant="link"
