@@ -42,7 +42,6 @@ interface DailyCrosswordProps {
   initialCrosswords: CrosswordData[];
 }
 
-// Add this type declaration to fix the TypeScript error
 declare global {
   interface Window {
     onSpotifyIframeApiReady: (api: any) => void;
@@ -186,7 +185,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
         },
         { 
           onConflict: 'user_id',
-          count: solved ? 'puzzles_solved,puzzles_attempted' : 'puzzles_attempted'
+          count: 'exact'
         }
       )
 
@@ -303,17 +302,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
               </div>
             </div>
             {currentPuzzle.song && currentPuzzle.song.spotify_id && (
-              <div className="mb-4">
-                <iframe
-                  src={`https://open.spotify.com/embed/track/${currentPuzzle.song.spotify_id}`}
-                  width="100%"
-                  height="80"
-                  frameBorder="0"
-                  allowTransparency={true}
-                  allow="encrypted-media"
-                  title={`${currentPuzzle.song.title} by ${currentPuzzle.song.artist}`}
-                ></iframe>
-              </div>
+              <div ref={spotifyEmbedRef} className="mb-4"></div>
             )}
             <Card className={`mb-2 ${isCorrect ? 'animate-rainbow' : ''}`}>
               <CardContent className="p-0">
