@@ -18,13 +18,14 @@ interface LoginSignupProps {
 }
 
 export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
+  const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
   const handleSignUp = async () => {
     const { data, error } = await supabase.auth.signUp({
-      email: `${username}@example.com`,
+      email,
       password,
       options: {
         data: { username }
@@ -39,7 +40,7 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
 
   const handleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: `${username}@example.com`,
+      email,
       password
     })
     if (error) setError(error.message)
@@ -50,53 +51,55 @@ export default function LoginSignup({ onClose, onLogin }: LoginSignupProps) {
   }
 
   return (
-    <Card className="w-full">
-      <CardContent className="p-4">
+    <Card className="w-full max-w-md mx-auto">
+      <CardContent className="p-6">
         <Tabs defaultValue="login">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
           <TabsContent value="login">
-            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
               <Input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="mb-2"
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mb-2"
               />
               <Button type="submit" className="w-full">Login</Button>
             </form>
           </TabsContent>
           <TabsContent value="signup">
-            <form onSubmit={(e) => { e.preventDefault(); handleSignUp(); }}>
+            <form onSubmit={(e) => { e.preventDefault(); handleSignUp(); }} className="space-y-4">
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
               <Input
                 type="text"
                 placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="mb-2"
               />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mb-2"
               />
               <Button type="submit" className="w-full">Sign Up</Button>
             </form>
           </TabsContent>
         </Tabs>
-        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+        {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
       </CardContent>
     </Card>
   )
