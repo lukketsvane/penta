@@ -360,7 +360,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
         )}
       </div>
       <footer className="w-full max-w-md mx-auto mt-4 px-4">
-        <p className="text-[10px] mb-1">made by @konden sjasjonskjerner with &lt;3 by @lukketsvane</p>
+        <p className="text-[10px] mb-1">made by @kondensjasjonskjerner with &lt;3 by @lukketsvane</p>
         <div className="flex justify-between items-center text-[10px] border-t border-gray-200 pt-1">
           <div className="flex items-center space-x-2">
             <Button
