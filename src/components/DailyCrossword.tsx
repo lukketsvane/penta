@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -55,7 +55,8 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
   const [showProfile, setShowProfile] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [spotifyToken, setSpotifyToken] = useState<string | null>(null)
+  const [embedController, setEmbedController] = useState<any>(null)
+  const spotifyEmbedRef = useRef<HTMLDivElement>(null)
 
   const supabase = createClientComponentClient()
 
@@ -64,7 +65,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
     if (crosswords.length > 0) {
       initializeUserGrid(crosswords[0])
     }
-    getSpotifyToken()
+    loadSpotifyScript()
   }, [])
 
   useEffect(() => {
@@ -73,23 +74,39 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
     }
   }, [user, currentPuzzleIndex])
 
+  useEffect(() => {
+    if (window.onSpotifyIframeApiReady) {
+      window.onSpotifyIframeApiReady = (IFrameAPI: any) => {
+        const element = spotifyEmbedRef.current
+        const options = {
+          width: '100%',
+          height: '80',
+          uri: `spotify:track:${crosswords[currentPuzzleIndex].song?.spotify_id}`
+        }
+        const callback = (EmbedController: any) => {
+          setEmbedController(EmbedController)
+        }
+        if (element) {
+          IFrameAPI.createController(element, options, callback)
+        }
+      }
+    }
+  }, [currentPuzzleIndex])
+
+  const loadSpotifyScript = () => {
+    const script = document.createElement('script')
+    script.src = 'https://open.spotify.com/embed/iframe-api/v1'
+    script.async = true
+    document.body.appendChild(script)
+
+    return () => {
+      document.body.removeChild(script)
+    }
+  }
+
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
-  }
-
-  const getSpotifyToken = async () => {
-    try {
-      const response = await fetch('/api/spotify-token')
-      if (!response.ok) {
-        throw new Error('Failed to fetch Spotify token')
-      }
-      const data = await response.json()
-      setSpotifyToken(data.access_token)
-    } catch (error) {
-      console.error('Error fetching Spotify token:', error)
-      setSpotifyToken(null)
-    }
   }
 
   const initializeUserGrid = (puzzle: CrosswordData) => {
@@ -275,16 +292,16 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
                 </Button>
               </div>
             </div>
-            {currentPuzzle.song && currentPuzzle.song.spotify_id && spotifyToken && (
+            {currentPuzzle.song && currentPuzzle.song.spotify_id && (
               <div className="mb-4">
                 <iframe
-                  src={`https://open.spotify.com/embed/track/${currentPuzzle.song.spotify_id}?utm_source=generator&theme=0`}
+                  src={`https://open.spotify.com/embed/track/${currentPuzzle.song.spotify_id}`}
                   width="100%"
                   height="80"
                   frameBorder="0"
-                  allowFullScreen
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
+                  allowTransparency={true}
+                  allow="encrypted-media"
+                  title={`${currentPuzzle.song.title} by ${currentPuzzle.song.artist}`}
                 ></iframe>
               </div>
             )}
@@ -360,9 +377,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
             <ChevronLeft className="h-3 w-3 mr-1" />
             Past
           </Button>
-          <span>{new Date(currentPuzzle.date).toI
-
-SOString().split('T')[0]}</span>
+          <span>{new Date(currentPuzzle.date).toISOString().split('T')[0]}</span>
           <Button
             variant="link"
             size="sm"

@@ -20,7 +20,6 @@ export interface Database {
           across_clues: Json
           down_clues: Json
           song: Json | null
-          theme_image_url: string | null
         }
         Insert: {
           id?: number
@@ -32,7 +31,6 @@ export interface Database {
           across_clues: Json
           down_clues: Json
           song?: Json | null
-          theme_image_url?: string | null
         }
         Update: {
           id?: number
@@ -44,27 +42,64 @@ export interface Database {
           across_clues?: Json
           down_clues?: Json
           song?: Json | null
-          theme_image_url?: string | null
         }
       }
       leaderboard: {
         Row: {
-          id: number
+          id: string
           user_id: string
-          username: string
+          display_name: string
           puzzles_solved: number
+          puzzles_attempted: number
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          id?: number
+          id?: string
           user_id: string
-          username: string
-          puzzles_solved: number
+          display_name: string
+          puzzles_solved?: number
+          puzzles_attempted?: number
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          id?: number
+          id?: string
           user_id?: string
-          username?: string
+          display_name?: string
           puzzles_solved?: number
+          puzzles_attempted?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      puzzle_attempts: {
+        Row: {
+          id: string
+          user_id: string
+          puzzle_id: number
+          attempts: number
+          solved: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          puzzle_id: number
+          attempts?: number
+          solved?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          puzzle_id?: number
+          attempts?: number
+          solved?: boolean
+          created_at?: string
+          updated_at?: string
         }
       }
     }
