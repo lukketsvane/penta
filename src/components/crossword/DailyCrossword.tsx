@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, ChevronLeft, ChevronRight, Info } from "lucide-react"
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import Image from 'next/image'
 
 interface CrosswordCell {
   value: string;
@@ -22,26 +23,22 @@ interface CrosswordData {
   id: number;
   date: string;
   title: string;
+  theme: string;
   grid: CrosswordCell[][];
   solution: string[][];
   across_clues: CrosswordClue[];
   down_clues: CrosswordClue[];
-  song: {
+  song?: {
     title: string;
     artist: string;
   };
+  theme_image_url?: string;
 }
 
-const getSpotifyTrackId = async (title: string, artist: string) => {
-  const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(title + ' ' + artist)}&type=track&limit=1`, {
-    headers: {
-      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SPOTIFY_ACCESS_TOKEN}`,
-      'Client-ID': process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID,
-    }
-  });
-  const data = await response.json();
-  return data.tracks.items[0]?.id;
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function DailyCrossword() {
   const [crosswords, setCrosswords] = useState<CrosswordData[]>([])
@@ -52,7 +49,8 @@ export default function DailyCrossword() {
   const [isCorrect, setIsCorrect] = useState(false)
   const [hasPressedPast, setHasPressedPast] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null);
+  const [spotifyTrackId, setSpotifyTrackId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCrosswords()
@@ -60,39 +58,90 @@ export default function DailyCrossword() {
 
   const fetchCrosswords = async () => {
     setIsLoading(true)
-    const { data, error } = await supabase
-      .from('crosswords')
-      .select('*')
-      .order('date', { ascending: false })
+    setError(null)
+    try {
+      console.log('Fetching crosswords...')
+      const { data, error } = await supabase
+        .from('crosswords')
+        .select('*')
+        .order('date', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching crosswords:', error)
-      setMessage('Failed to load crosswords. Please try again later.')
-    } else {
-      setCrosswords(data || [])
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      console.log('Fetched data:', data)
+
+      if (data && data.length > 0) {
+        const parsedCrosswords = data.map(crossword => {
+          try {
+            return {
+              ...crossword,
+              grid: JSON.parse(crossword.grid as unknown as string),
+              solution: JSON.parse(crossword.solution as unknown as string),
+              across_clues: JSON.parse(crossword.across_clues as unknown as string),
+              down_clues: JSON.parse(crossword.down_clues as unknown as string),
+              song: crossword.song ? JSON.parse(crossword.song as unknown as string) : undefined
+            }
+          } catch (parseError) {
+            console.error('Error parsing crossword data:', parseError, crossword)
+            return null
+          }
+        }).filter(Boolean) as CrosswordData[]
+
+        console.log('Parsed crosswords:', parsedCrosswords)
+        
+        if (parsedCrosswords.length > 0) {
+          setCrosswords(parsedCrosswords)
+          initializeUserGrid(parsedCrosswords[0])
+        } else {
+          setError('No valid puzzles available.')
+        }
+      } else {
+        setError('No puzzles available.')
+      }
+    } catch (err) {
+      console.error('Error fetching crosswords:', err)
+      setError('Failed to load crosswords. Please try again later.')
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
-  useEffect(() => {
-    if (crosswords.length > 0) {
-      const currentPuzzle = crosswords[currentPuzzleIndex];
-      const storedAttempts = localStorage.getItem(`crosswordAttempts_${currentPuzzle.id}`);
-      if (storedAttempts) {
-        setAttempts(parseInt(storedAttempts, 10));
-      } else {
-        setAttempts(0);
-      }
-      setUserGrid(currentPuzzle.grid.map(row => row.map(() => '')));
-      setIsCorrect(false);
-      setMessage('');
-
-      // Fetch Spotify track ID
-      getSpotifyTrackId(currentPuzzle.song.title, currentPuzzle.song.artist)
-        .then(id => setSpotifyTrackId(id))
-        .catch(error => console.error('Error fetching Spotify track:', error));
+  const initializeUserGrid = (puzzle: CrosswordData) => {
+    setUserGrid(puzzle.grid.map(row => row.map(() => '')))
+    setAttempts(0)
+    setIsCorrect(false)
+    setMessage('')
+    if (puzzle.song) {
+      fetchSpotifyTrackId(puzzle.song.title, puzzle.song.artist)
+    } else {
+      setSpotifyTrackId(null)
     }
-  }, [currentPuzzleIndex, crosswords]);
+  }
+
+  const fetchSpotifyTrackId = async (title: string, artist: string) => {
+    try {
+      const response = await fetch('/api/spotify-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title, artist }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch Spotify track')
+      }
+
+      const data = await response.json()
+      setSpotifyTrackId(data.trackId)
+    } catch (error) {
+      console.error('Error fetching Spotify track:', error)
+      setSpotifyTrackId(null)
+    }
+  }
 
   const handleInputChange = (rowIndex: number, colIndex: number, value: string) => {
     const newGrid = [...userGrid]
@@ -107,7 +156,6 @@ export default function DailyCrossword() {
     if (attempts < 10) {
       const newAttempts = attempts + 1
       setAttempts(newAttempts)
-      localStorage.setItem(`crosswordAttempts_${currentPuzzle.id}`, newAttempts.toString())
 
       const isSubmissionCorrect = userGrid.every((row, i) =>
         row.every((cell, j) => cell === currentPuzzle.solution[i][j] || currentPuzzle.grid[i][j].isBlocked)
@@ -120,32 +168,39 @@ export default function DailyCrossword() {
         setMessage(`Attempt ${newAttempts} submitted. You have ${10 - newAttempts} attempts left.`)
       }
     } else {
-      setMessage("Sorry, you're out of attempts. Try another puzzle or come back tomorrow!")
+      setMessage("Sorry, you're out of attempts. Try another puzzle!")
     }
   }
 
   const handleReset = () => {
     if (crosswords.length === 0) return
-
-    const currentPuzzle = crosswords[currentPuzzleIndex]
-    setUserGrid(currentPuzzle.grid.map(row => row.map(() => '')))
-    setMessage('')
-    setAttempts(0)
-    setIsCorrect(false)
-    localStorage.removeItem(`crosswordAttempts_${currentPuzzle.id}`)
+    initializeUserGrid(crosswords[currentPuzzleIndex])
   }
 
   const handlePast = () => {
-    setCurrentPuzzleIndex((prevIndex) => (prevIndex + 1) % crosswords.length)
+    const newIndex = (currentPuzzleIndex + 1) % crosswords.length
+    setCurrentPuzzleIndex(newIndex)
+    initializeUserGrid(crosswords[newIndex])
     setHasPressedPast(true)
   }
 
   const handleNext = () => {
-    setCurrentPuzzleIndex((prevIndex) => (prevIndex - 1 + crosswords.length) % crosswords.length)
+    const newIndex = (currentPuzzleIndex - 1 + crosswords.length) % crosswords.length
+    setCurrentPuzzleIndex(newIndex)
+    initializeUserGrid(crosswords[newIndex])
   }
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen">
+        <p className="text-xl font-bold mb-4">{error}</p>
+        <Button onClick={fetchCrosswords}>Retry</Button>
+      </div>
+    )
   }
 
   if (crosswords.length === 0) {
@@ -160,8 +215,11 @@ export default function DailyCrossword() {
       <div className={`${isOutOfAttempts ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="relative mb-2">
           <h1 className="text-lg font-bold">{currentPuzzle.title}</h1>
+          <p className="text-sm text-gray-600">{currentPuzzle.theme}</p>
           <div className="absolute top-0 right-0 z-10 flex items-center">
-            <p className="text-xs mr-2">{currentPuzzle.song.title} - {currentPuzzle.song.artist}</p>
+            {currentPuzzle.song && (
+              <p className="text-xs mr-2">{currentPuzzle.song.title} - {currentPuzzle.song.artist}</p>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -183,6 +241,17 @@ export default function DailyCrossword() {
               allowTransparency={true}
               allow="encrypted-media"
             ></iframe>
+          </div>
+        )}
+        {currentPuzzle.theme_image_url && (
+          <div className="mb-4">
+            <Image
+              src={currentPuzzle.theme_image_url}
+              alt={`Theme image for ${currentPuzzle.title}`}
+              width={300}
+              height={200}
+              layout="responsive"
+            />
           </div>
         )}
         <Card className={`mb-2 ${isCorrect ? 'animate-rainbow' : ''}`}>
