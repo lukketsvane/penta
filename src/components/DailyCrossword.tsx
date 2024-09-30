@@ -42,6 +42,13 @@ interface DailyCrosswordProps {
   initialCrosswords: CrosswordData[];
 }
 
+// Add this type declaration to fix the TypeScript error
+declare global {
+  interface Window {
+    onSpotifyIframeApiReady: (api: any) => void;
+  }
+}
+
 export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProps) {
   const [crosswords, setCrosswords] = useState<CrosswordData[]>(initialCrosswords)
   const [currentPuzzleIndex, setCurrentPuzzleIndex] = useState(0)
@@ -63,7 +70,11 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
   useEffect(() => {
     checkUser()
     if (crosswords.length > 0) {
-      initializeUserGrid(crosswords[0])
+      const todayIndex = crosswords.findIndex(puzzle => 
+        new Date(puzzle.date).toDateString() === new Date().toDateString()
+      )
+      setCurrentPuzzleIndex(todayIndex !== -1 ? todayIndex : 0)
+      initializeUserGrid(crosswords[todayIndex !== -1 ? todayIndex : 0])
     }
     loadSpotifyScript()
   }, [])
@@ -75,20 +86,18 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
   }, [user, currentPuzzleIndex])
 
   useEffect(() => {
-    if (window.onSpotifyIframeApiReady) {
-      window.onSpotifyIframeApiReady = (IFrameAPI: any) => {
-        const element = spotifyEmbedRef.current
-        const options = {
-          width: '100%',
-          height: '80',
-          uri: `spotify:track:${crosswords[currentPuzzleIndex].song?.spotify_id}`
-        }
-        const callback = (EmbedController: any) => {
-          setEmbedController(EmbedController)
-        }
-        if (element) {
-          IFrameAPI.createController(element, options, callback)
-        }
+    window.onSpotifyIframeApiReady = (IFrameAPI: any) => {
+      const element = spotifyEmbedRef.current
+      const options = {
+        width: '100%',
+        height: '80',
+        uri: `spotify:track:${crosswords[currentPuzzleIndex].song?.spotify_id}`
+      }
+      const callback = (EmbedController: any) => {
+        setEmbedController(EmbedController)
+      }
+      if (element) {
+        IFrameAPI.createController(element, options, callback)
       }
     }
   }, [currentPuzzleIndex])
@@ -254,6 +263,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
 
   const currentPuzzle = crosswords[currentPuzzleIndex]
   const isOutOfAttempts = attempts >= 10
+  const isCurrentDate = new Date(currentPuzzle.date).toDateString() === new Date().toDateString()
 
   return (
     <div className="max-w-md mx-auto px-2 py-4">
@@ -377,7 +387,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
             <ChevronLeft className="h-3 w-3 mr-1" />
             Past
           </Button>
-          <span>{new Date(currentPuzzle.date).toISOString().split('T')[0]}</span>
+          <span>{new Date(currentPuzzle.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
           <Button
             variant="link"
             size="sm"
@@ -407,7 +417,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
           >
             <Info className="h-3 w-3" />
           </Button>
-          {hasPressedPast && (
+          {hasPressedPast && !isCurrentDate && (
             <Button
               variant="link"
               size="sm"
