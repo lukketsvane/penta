@@ -361,7 +361,7 @@ export default function DailyCrossword({ initialCrosswords }: DailyCrosswordProp
       </div>
       <footer className="w-full max-w-md mx-auto mt-4 px-4">
         <div className="text-center">
-          <p className="text-[10px] mb-1">concept & crosswords from @kondensjasjonskjerner, coded with &lt;3 by @lukketsvane</p>
+          <p className="text-[10px] mb-1">Concept & words by @kondensjasjonskjerner, coded with &lt;3 by @lukketsvane</p>
         </div>
         <div className="flex justify-between items-center text-[10px] border-t border-gray-200 pt-1">
           <div className="flex items-center space-x-2">
